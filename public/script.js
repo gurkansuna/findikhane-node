@@ -1,7 +1,7 @@
 const catalog = {
-  "giresun-secme": { name: "Ordu ve Giresun Seçme", price: 529 },
-  "tas-firin-kavrulmus": { name: "Taş Fırın Kavrulmuş", price: 579 },
-  "ipek-kivam": { name: "İpek Kıvam", price: 459 }
+  "giresun-secme": { name: "Ordu ve Giresun Seçme", price: 849 },
+  "tas-firin-kavrulmus": { name: "Taş Fırın Kavrulmuş", price: 1099 },
+  "ipek-kivam": { name: "İpek Kıvam", price: 849 }
 };
 
 const cart = new Map();
