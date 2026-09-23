@@ -1,8 +1,27 @@
-const catalog = {
-  "giresun-secme": { name: "Ordu ve Giresun Seçme", price: 849 },
-  "tas-firin-kavrulmus": { name: "Taş Fırın Kavrulmuş", price: 1099 },
-  "ipek-kivam": { name: "İpek Kıvam", price: 849 }
-};
+// Ürün fiyatları artık burada sabit yazmıyor: sayfa açılışında /api/products'tan
+// çekilir. Bu sayede data/pricing-config.json'daki bir güncelleme, kod veya bu
+// dosya değişmeden sitede otomatik yansır. Ağ isteği tamamlanana kadar (veya
+// başarısız olursa) HTML'deki son yayınlanan fiyatlar geçerlidir.
+let catalog = {};
+
+async function loadCatalogFromServer() {
+  try {
+    const response = await fetch("/api/products");
+    if (!response.ok) throw new Error("Ürün listesi alınamadı.");
+    const { products } = await response.json();
+    catalog = Object.fromEntries(products.map((product) => [product.id, product]));
+
+    document.querySelectorAll(".add-button[data-product-id]").forEach((button) => {
+      const product = catalog[button.dataset.productId];
+      const priceElement = button.closest(".product-card")?.querySelector(".product-info strong");
+      if (product && priceElement) {
+        priceElement.textContent = formatPrice(product.price);
+      }
+    });
+  } catch (error) {
+    console.error("Güncel fiyatlar yüklenemedi, sayfadaki fiyatlar kullanılacak.", error);
+  }
+}
 
 const cart = new Map();
 const cartCount = document.querySelector("#cart-count");
@@ -121,4 +140,4 @@ document.querySelector("#newsletter-form").addEventListener("submit", (event) =>
   event.currentTarget.reset();
 });
 
-renderCart();
+loadCatalogFromServer().finally(renderCart);

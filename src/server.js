@@ -9,6 +9,7 @@ import { normaliseBuyer, normaliseCart } from "./lib/validation.js";
 import { iyzicoRequest, verifyIyzicoSignature } from "./lib/iyzico.js";
 import { OrderRepository } from "./lib/orderRepository.js";
 import { DomainError } from "./lib/domainError.js";
+import { getCatalog } from "./lib/catalog.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, "..", "public");
@@ -288,6 +289,22 @@ async function serveStatic(req, res) {
   }
 }
 
+// ------------------------------------------------------------------------------------
+// Ürün kataloğunu (ve güncel fiyatları) istemciye JSON olarak sunar. public/script.js
+// sayfa açılışında bu uç noktayı çağırıp fiyatları buradan alır; böylece
+// data/pricing-config.json'da yapılan bir değişiklik kod veya HTML dokunmadan,
+// sunucu yeniden başlatılmadan sitede otomatik görünür.
+// ------------------------------------------------------------------------------------
+function handleProductsList(req, res) {
+  try {
+    const products = Object.values(getCatalog());
+    writeJson(res, 200, { products });
+  } catch (error) {
+    console.error("Ürün kataloğu okunamadı", error);
+    writeJson(res, 500, { error: "Ürün bilgileri şu anda yüklenemedi." });
+  }
+}
+
 const server = http.createServer(async (req, res) => {
   try {
     if (req.method === "POST" && req.url === "/api/checkout") {
@@ -296,6 +313,10 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === "POST" && req.url === "/payment/callback") {
       await handlePaymentCallback(req, res);
+      return;
+    }
+    if (req.method === "GET" && req.url === "/api/products") {
+      handleProductsList(req, res);
       return;
     }
     if (req.method === "GET" || req.method === "HEAD") {

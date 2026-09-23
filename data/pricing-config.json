@@ -1,0 +1,26 @@
+{
+  "_aciklama": "Fiyatlar burada tek elden yönetilir. 'referansIcFindikFiyati' değerini güncel piyasa araştırmasına göre siz güncellersiniz (TL/kg, çiğ iç fındık baz fiyatı); her ürünün nihai fiyatı bu değer × o ürünün 'carpan'ı ile otomatik hesaplanır. Kod veya sunucu yeniden başlatma gerekmez, dosyayı kaydettiğiniz an site yeni fiyatı yansıtır.",
+  "referansIcFindikFiyati": 849,
+  "referansGuncellemeTarihi": "2026-09-23",
+  "referansKaynakNotu": "Perakende iç fındık/kavrulmuş fındık/fındık ezmesi piyasa araştırması (akakce, cerezpazari, hepsiburada, findikpark, elmasfindik, habergazetesi) — 21 Eylül 2026",
+  "urunler": {
+    "giresun-secme": {
+      "ad": "Ordu ve Giresun Seçme",
+      "kategori": "Çiğ iç fındık",
+      "carpan": 1,
+      "carpanAciklamasi": "Baz ürün: referans fiyatın kendisi."
+    },
+    "tas-firin-kavrulmus": {
+      "ad": "Taş Fırın Kavrulmuş",
+      "kategori": "Kavrulmuş iç fındık",
+      "carpan": 1.3,
+      "carpanAciklamasi": "Kavurma, fire ve paketleme maliyeti nedeniyle çiğ iç fındığın ~%30 üzerinde konumlandırılır (piyasa araştırmasıyla uyumlu)."
+    },
+    "ipek-kivam": {
+      "ad": "İpek Kıvam",
+      "kategori": "Katkısız fındık ezmesi",
+      "carpan": 1,
+      "carpanAciklamasi": "Öğütme maliyeti çiğ iç fındık fiyatına yakın piyasa seviyesinde kalır."
+    }
+  }
+}
