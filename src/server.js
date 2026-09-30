@@ -10,6 +10,7 @@ import { iyzicoRequest, verifyIyzicoSignature } from "./lib/iyzico.js";
 import { OrderRepository } from "./lib/orderRepository.js";
 import { DomainError } from "./lib/domainError.js";
 import { getCatalog } from "./lib/catalog.js";
+import { checkAdminAuth, isAdminConfigured } from "./lib/adminAuth.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, "..", "public");
@@ -23,6 +24,11 @@ const iyzicoOptions = {
 };
 const isIyzicoConfigured = () => Boolean(iyzicoOptions.apiKey && iyzicoOptions.secretKey && iyzicoOptions.publicBaseUrl);
 const isApiCredentialsPresent = () => Boolean(iyzicoOptions.apiKey && iyzicoOptions.secretKey);
+
+const adminOptions = {
+  username: process.env.ADMIN_USERNAME || "",
+  password: process.env.ADMIN_PASSWORD || ""
+};
 
 const connectionString =
   process.env.POSTGRES_CONNECTION_STRING ||
@@ -305,6 +311,59 @@ function handleProductsList(req, res) {
   }
 }
 
+// ------------------------------------------------------------------------------------
+// Yönetim paneli (/admin, /api/admin/*): HTTP Basic Auth ile korunur. Kimlik bilgileri
+// ADMIN_USERNAME / ADMIN_PASSWORD ortam değişkenlerinden okunur; tanımlı değilse panel
+// tamamen kapalıdır. Panelde T.C. kimlik no, ad-soyad, adres gibi bilgiler YOKTUR —
+// orderRepository bunları hiç saklamaz, sadece sepet içeriği ve ödeme durumu tutulur.
+// ------------------------------------------------------------------------------------
+function requireAdminAuth(req, res) {
+  if (!isAdminConfigured(adminOptions)) {
+    writeJson(res, 503, {
+      error: "Yönetim paneli yapılandırılmadı. ADMIN_USERNAME ve ADMIN_PASSWORD ortam değişkenlerini tanımlayın."
+    });
+    return false;
+  }
+  if (!checkAdminAuth(req, adminOptions)) {
+    applySecurityHeaders(res);
+    res.writeHead(401, {
+      "WWW-Authenticate": 'Basic realm="Findikhane Admin", charset="UTF-8"',
+      "Content-Type": "text/plain; charset=utf-8"
+    });
+    res.end("Yetkisiz erişim.");
+    return false;
+  }
+  return true;
+}
+
+async function handleAdminOrders(req, res) {
+  const VALID_STATUSES = ["PENDING", "SUCCESS", "FAILURE"];
+  try {
+    const url = new URL(req.url, "http://localhost");
+    const statusParam = url.searchParams.get("status") || "";
+    const status = VALID_STATUSES.includes(statusParam) ? statusParam : undefined;
+    if (statusParam && !status) {
+      writeJson(res, 400, { error: "Geçersiz durum filtresi." });
+      return;
+    }
+
+    const limit = 50;
+    const page = Math.max(1, Number.parseInt(url.searchParams.get("page") ?? "1", 10) || 1);
+    const offset = (page - 1) * limit;
+
+    const [items, total, summary] = await Promise.all([
+      orders.listOrders({ limit, offset, status }),
+      orders.countOrders({ status }),
+      orders.getSummary()
+    ]);
+
+    writeJson(res, 200, { orders: items, total, page, limit, summary });
+  } catch (error) {
+    console.error("Sipariş listesi okunamadı", error);
+    writeJson(res, 500, { error: "Sipariş listesi şu anda yüklenemedi." });
+  }
+}
+
 const server = http.createServer(async (req, res) => {
   try {
     if (req.method === "POST" && req.url === "/api/checkout") {
@@ -317,6 +376,23 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === "GET" && req.url === "/api/products") {
       handleProductsList(req, res);
+      return;
+    }
+    if ((req.method === "GET" || req.method === "HEAD") && (req.url === "/admin" || req.url === "/admin/" || req.url.startsWith("/admin/"))) {
+      if (!requireAdminAuth(req, res)) return;
+      if (req.url === "/admin" || req.url === "/admin/") {
+        req.url = "/admin/index.html";
+      }
+      await serveStatic(req, res);
+      return;
+    }
+    if (req.method === "GET" && req.url.startsWith("/api/admin/")) {
+      if (!requireAdminAuth(req, res)) return;
+      if (req.url.split("?")[0] === "/api/admin/orders") {
+        await handleAdminOrders(req, res);
+        return;
+      }
+      writeJson(res, 404, { error: "Bulunamadı." });
       return;
     }
     if (req.method === "GET" || req.method === "HEAD") {

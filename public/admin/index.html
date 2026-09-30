@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="robots" content="noindex,nofollow" />
+<title>Sipariş Yönetimi | Fındıkhane</title>
+<style>
+  :root {
+    --bg: #f4f1ea;
+    --panel: #ffffff;
+    --ink: #1c2621;
+    --muted: #6b7570;
+    --line: #e4ddd0;
+    --brand: #193d36;
+    --accent: #47724e;
+    --warn: #b48a2d;
+    --danger: #b44e2d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, "Segoe UI", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  header {
+    background: var(--brand);
+    color: #fff;
+    padding: 20px 24px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  header h1 { margin: 0; font-size: 20px; font-weight: 700; }
+  header p { margin: 0; font-size: 13px; opacity: 0.8; }
+  main { max-width: 1080px; margin: 0 auto; padding: 24px 16px 64px; }
+
+  .summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .stat {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .stat span { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .stat strong { font-size: 22px; }
+  .stat.success strong { color: var(--accent); }
+  .stat.failure strong { color: var(--danger); }
+  .stat.pending strong { color: var(--warn); }
+
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .toolbar select, .toolbar button {
+    font: inherit;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .toolbar button:hover, .toolbar select:hover { border-color: var(--brand); }
+  .toolbar .spacer { flex: 1; }
+  .toolbar .status-msg { font-size: 13px; color: var(--muted); }
+
+  table { width: 100%; border-collapse: collapse; background: var(--panel); border-radius: 10px; overflow: hidden; border: 1px solid var(--line); }
+  thead th {
+    text-align: left;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--line);
+    background: #faf8f3;
+  }
+  tbody td { padding: 12px 14px; border-bottom: 1px solid var(--line); font-size: 14px; vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr.order-row { cursor: pointer; }
+  tbody tr.order-row:hover { background: #faf8f3; }
+  .order-id { font-family: ui-monospace, Menlo, monospace; font-size: 13px; }
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .badge.SUCCESS { background: #e6f0e7; color: var(--accent); }
+  .badge.PENDING { background: #f5ecd8; color: var(--warn); }
+  .badge.FAILURE { background: #f6e3da; color: var(--danger); }
+  .cart-summary { color: var(--muted); }
+  .detail-row td { background: #faf8f3; padding: 0; }
+  .detail-inner { padding: 12px 14px 16px 14px; }
+  .detail-inner table { border: none; }
+  .detail-inner thead th { background: transparent; }
+  .detail-inner td, .detail-inner th { padding: 6px 10px; font-size: 13px; }
+  .empty, .loading, .error { text-align: center; padding: 40px 16px; color: var(--muted); }
+  .error { color: var(--danger); }
+  .pagination { display: flex; align-items: center; gap: 10px; justify-content: center; margin-top: 18px; }
+  .pagination button:disabled { opacity: 0.4; cursor: default; }
+</style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Fındıkhane — Sipariş Yönetimi</h1>
+      <p>Sadece sipariş/ödeme kayıtları görüntülenir; kimlik veya adres bilgisi tutulmaz.</p>
+    </div>
+    <p id="refresh-info"></p>
+  </header>
+
+  <main>
+    <section class="summary" id="summary" aria-label="Özet">
+      <div class="stat"><span>Toplam sipariş</span><strong id="stat-all">—</strong></div>
+      <div class="stat success"><span>Ödendi</span><strong id="stat-success">—</strong></div>
+      <div class="stat pending"><span>Bekliyor</span><strong id="stat-pending">—</strong></div>
+      <div class="stat failure"><span>Başarısız</span><strong id="stat-failure">—</strong></div>
+      <div class="stat"><span>Toplam ciro (ödenen)</span><strong id="stat-revenue">—</strong></div>
+    </section>
+
+    <div class="toolbar">
+      <label for="status-filter" style="font-size:13px;color:var(--muted)">Durum:</label>
+      <select id="status-filter">
+        <option value="">Tümü</option>
+        <option value="SUCCESS">Ödendi</option>
+        <option value="PENDING">Bekliyor</option>
+        <option value="FAILURE">Başarısız</option>
+      </select>
+      <button id="refresh-button" type="button">Yenile</button>
+      <span class="spacer"></span>
+      <span class="status-msg" id="status-msg"></span>
+    </div>
+
+    <div id="table-wrap">
+      <div class="loading">Yükleniyor…</div>
+    </div>
+
+    <div class="pagination" id="pagination" hidden>
+      <button id="prev-page" type="button">← Önceki</button>
+      <span id="page-info"></span>
+      <button id="next-page" type="button">Sonraki →</button>
+    </div>
+  </main>
+
+  <script>
+    const state = { page: 1, status: "", data: null, expanded: new Set() };
+
+    const statusFilter = document.querySelector("#status-filter");
+    const refreshButton = document.querySelector("#refresh-button");
+    const tableWrap = document.querySelector("#table-wrap");
+    const pagination = document.querySelector("#pagination");
+    const pageInfo = document.querySelector("#page-info");
+    const prevPageButton = document.querySelector("#prev-page");
+    const nextPageButton = document.querySelector("#next-page");
+    const statusMsg = document.querySelector("#status-msg");
+    const refreshInfo = document.querySelector("#refresh-info");
+
+    const STATUS_LABEL = { SUCCESS: "Ödendi", PENDING: "Bekliyor", FAILURE: "Başarısız" };
+
+    function formatMoney(value) {
+      return new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY", maximumFractionDigits: 0 }).format(value);
+    }
+
+    function formatDate(value) {
+      if (!value) return "—";
+      return new Intl.DateTimeFormat("tr-TR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
+    }
+
+    function cartSummary(cart) {
+      if (!Array.isArray(cart) || cart.length === 0) return "—";
+      return cart.map((item) => `${item.name} ×${item.quantity}`).join(", ");
+    }
+
+    function renderSummary(summary) {
+      document.querySelector("#stat-all").textContent = summary.allCount ?? "—";
+      document.querySelector("#stat-success").textContent = summary.successCount ?? "—";
+      document.querySelector("#stat-pending").textContent = summary.pendingCount ?? "—";
+      document.querySelector("#stat-failure").textContent = summary.failureCount ?? "—";
+      document.querySelector("#stat-revenue").textContent = formatMoney(summary.successTotal ?? 0);
+    }
+
+    function renderTable(data) {
+      if (!data.orders.length) {
+        tableWrap.innerHTML = '<div class="empty">Bu filtreye uyan sipariş yok.</div>';
+        pagination.hidden = true;
+        return;
+      }
+
+      const rows = data.orders.map((order) => {
+        const isOpen = state.expanded.has(order.orderId);
+        const detailRows = order.cart.map((item) => `
+          <tr>
+            <td>${item.name}</td>
+            <td>${item.category ?? "—"}</td>
+            <td>${item.quantity}</td>
+            <td>${formatMoney(item.price)}</td>
+            <td>${formatMoney(item.lineTotal ?? item.price * item.quantity)}</td>
+          </tr>`).join("");
+
+        return `
+          <tr class="order-row" data-order-id="${order.orderId}">
+            <td class="order-id">${order.orderId}</td>
+            <td>${formatDate(order.createdAt)}</td>
+            <td class="cart-summary">${cartSummary(order.cart)}</td>
+            <td>${formatMoney(order.total)}</td>
+            <td><span class="badge ${order.paymentStatus}">${STATUS_LABEL[order.paymentStatus] ?? order.paymentStatus}</span></td>
+          </tr>
+          <tr class="detail-row" data-detail-for="${order.orderId}" ${isOpen ? "" : "hidden"}>
+            <td colspan="5">
+              <div class="detail-inner">
+                <table>
+                  <thead><tr><th>Ürün</th><th>Kategori</th><th>Adet</th><th>Birim fiyat</th><th>Ara toplam</th></tr></thead>
+                  <tbody>${detailRows}</tbody>
+                </table>
+                <p style="margin:8px 0 0;font-size:12px;color:var(--muted)">Ödeme referansı: ${order.paymentId ?? "—"} · Tamamlanma: ${formatDate(order.completedAt)}</p>
+              </div>
+            </td>
+          </tr>`;
+      }).join("");
+
+      tableWrap.innerHTML = `
+        <table>
+          <thead>
+            <tr><th>Sipariş No</th><th>Tarih</th><th>Ürünler</th><th>Tutar</th><th>Durum</th></tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>`;
+
+      tableWrap.querySelectorAll(".order-row").forEach((row) => {
+        row.addEventListener("click", () => {
+          const id = row.dataset.orderId;
+          if (state.expanded.has(id)) state.expanded.delete(id);
+          else state.expanded.add(id);
+          renderTable(state.data);
+        });
+      });
+
+      const totalPages = Math.max(1, Math.ceil(data.total / data.limit));
+      pagination.hidden = totalPages <= 1;
+      pageInfo.textContent = `Sayfa ${data.page} / ${totalPages} · ${data.total} sipariş`;
+      prevPageButton.disabled = data.page <= 1;
+      nextPageButton.disabled = data.page >= totalPages;
+    }
+
+    async function loadOrders() {
+      statusMsg.textContent = "Yükleniyor…";
+      try {
+        const params = new URLSearchParams({ page: String(state.page) });
+        if (state.status) params.set("status", state.status);
+
+        const response = await fetch(`/api/admin/orders?${params}`);
+        if (response.status === 401) {
+          statusMsg.textContent = "Yetkisiz — sayfayı yenileyip giriş bilgilerinizi tekrar girin.";
+          tableWrap.innerHTML = '<div class="error">Giriş yapılamadı.</div>';
+          return;
+        }
+        if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || "Sipariş listesi alınamadı.");
+
+        const data = await response.json();
+        state.data = data;
+        renderSummary(data.summary);
+        renderTable(data);
+        refreshInfo.textContent = `Son güncelleme: ${new Intl.DateTimeFormat("tr-TR", { timeStyle: "medium" }).format(new Date())}`;
+        statusMsg.textContent = "";
+      } catch (error) {
+        tableWrap.innerHTML = `<div class="error">${error.message || "Bir sorun oluştu."}</div>`;
+        statusMsg.textContent = "";
+      }
+    }
+
+    statusFilter.addEventListener("change", () => {
+      state.status = statusFilter.value;
+      state.page = 1;
+      loadOrders();
+    });
+    refreshButton.addEventListener("click", loadOrders);
+    prevPageButton.addEventListener("click", () => { if (state.page > 1) { state.page -= 1; loadOrders(); } });
+    nextPageButton.addEventListener("click", () => { state.page += 1; loadOrders(); });
+
+    loadOrders();
+  </script>
+</body>
+</html>

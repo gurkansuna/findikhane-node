@@ -56,6 +56,63 @@ export class OrderRepository {
       [completed ? "SUCCESS" : "FAILURE", paymentId ?? null, new Date(), orderId]
     );
   }
+
+  // ------------------------------------------------------------------------------------
+  // Yönetim paneli (GET /admin) için: sipariş listesi, sayfalama ve durum filtresiyle.
+  // ------------------------------------------------------------------------------------
+  async listOrders({ limit = 50, offset = 0, status } = {}) {
+    const params = [];
+    let whereClause = "";
+    if (status) {
+      params.push(status);
+      whereClause = `WHERE payment_status = $${params.length}`;
+    }
+    params.push(limit);
+    const limitIndex = params.length;
+    params.push(offset);
+    const offsetIndex = params.length;
+
+    const { rows } = await this.pool.query(
+      `SELECT order_id, created_at, completed_at, cart, conversation_id, total, payment_status, token, payment_id
+       FROM orders
+       ${whereClause}
+       ORDER BY created_at DESC
+       LIMIT $${limitIndex} OFFSET $${offsetIndex}`,
+      params
+    );
+    return rows.map(mapRow);
+  }
+
+  async countOrders({ status } = {}) {
+    const params = [];
+    let whereClause = "";
+    if (status) {
+      params.push(status);
+      whereClause = `WHERE payment_status = $${params.length}`;
+    }
+    const { rows } = await this.pool.query(`SELECT COUNT(*)::int AS count FROM orders ${whereClause}`, params);
+    return rows[0].count;
+  }
+
+  async getSummary() {
+    const { rows } = await this.pool.query(`
+      SELECT
+        COUNT(*)::int AS all_count,
+        COUNT(*) FILTER (WHERE payment_status = 'SUCCESS')::int AS success_count,
+        COUNT(*) FILTER (WHERE payment_status = 'PENDING')::int AS pending_count,
+        COUNT(*) FILTER (WHERE payment_status = 'FAILURE')::int AS failure_count,
+        COALESCE(SUM(total) FILTER (WHERE payment_status = 'SUCCESS'), 0)::numeric(12,2) AS success_total
+      FROM orders
+    `);
+    const row = rows[0];
+    return {
+      allCount: row.all_count,
+      successCount: row.success_count,
+      pendingCount: row.pending_count,
+      failureCount: row.failure_count,
+      successTotal: Number(row.success_total)
+    };
+  }
 }
 
 function mapRow(row) {

@@ -8,6 +8,7 @@ Bu klasör, `src/Findikhane.Api` altındaki .NET sürümüyle aynı işlevleri g
 - Siparişler PostgreSQL'de saklanır (`src/lib/orderRepository.js`), dosya tabanlı depolama yok.
 - Statik dosyalar (`public/`) .NET sürümünün `wwwroot/` klasörüyle aynı: aynı HTML/CSS/JS, aynı ürün görselleri, aynı fiyatlar.
 - Ürün fiyatları artık HTML/JS içinde sabit yazılı değil; tek kaynaktan (`data/pricing-config.json`) hesaplanıp `GET /api/products` ile servis edilir (aşağıdaki "Fiyat güncelleme" bölümüne bakın).
+- `/admin` altında, HTTP Basic Auth ile korunan bir sipariş yönetim paneli var (aşağıdaki "Yönetim paneli" bölümüne bakın). Panelde T.C. kimlik no, ad-soyad veya adres YOKTUR; bunlar veritabanında zaten saklanmaz.
 
 ## Yerel çalıştırma
 
@@ -38,6 +39,17 @@ Dosyayı kaydettiğiniz an yeni fiyatlar geçerli olur — kod değişikliği, d
 
 Yeni bir ürün eklemek için `urunler` altına yeni bir id daha eklemeniz ve `public/index.html`'e karşılık gelen ürün kartını (aynı `data-product-id` ile) eklemeniz yeterlidir.
 
+## Yönetim paneli (/admin)
+
+`findikhane.com/admin` (veya `http://localhost:8080/admin` yerelde) adresinden sipariş listesini görebilirsiniz: sipariş no, tarih, sepet içeriği, tutar ve ödeme durumu (Bekliyor / Ödendi / Başarısız), üstte toplam sipariş/ciro özeti ve durum filtresiyle. Sayfa `GET /api/admin/orders`'ı çağırır; bu uç nokta doğrudan `orders` tablosundan okur, `src/lib/orderRepository.js`'e yeni bir alan eklemeniz gerekmez.
+
+Panel **HTTP Basic Auth** ile korunur:
+
+- `ADMIN_USERNAME` ve `ADMIN_PASSWORD` ortam değişkenlerini tanımlayın (`.env` veya `docker compose`). Tanımlı değilse panel tamamen kapalıdır (503 döner).
+- Tarayıcı otomatik olarak kullanıcı adı/şifre soracaktır — ayrı bir giriş sayfası yoktur.
+- **Panel mutlaka HTTPS arkasında çalıştırılmalı.** Basic Auth kimlik bilgileri düz metin olarak gönderilir; siteniz zaten iyzico için HTTPS gerektirdiğinden (canlı ortamda) bu genelde otomatik sağlanır, ama `PUBLIC_BASE_URL`'nizin `https://` olduğundan emin olun.
+- Güvenlik notu: veritabanında zaten T.C. kimlik no, ad-soyad, adres veya kart bilgisi **saklanmıyor** (`orderRepository.js`), bu yüzden panel de bunları göstermez — sadece sepet/ödeme verisi.
+
 ## Ortam değişkenleri
 
-`.env.example` dosyasına bakın: `PORT`, `POSTGRES_CONNECTION_STRING`, `IYZICO_API_KEY`, `IYZICO_SECRET_KEY`, `IYZICO_BASE_URL`, `PUBLIC_BASE_URL`.
+`.env.example` dosyasına bakın: `PORT`, `POSTGRES_CONNECTION_STRING`, `IYZICO_API_KEY`, `IYZICO_SECRET_KEY`, `IYZICO_BASE_URL`, `PUBLIC_BASE_URL`, `ADMIN_USERNAME`, `ADMIN_PASSWORD` (yönetim paneli girişi).
